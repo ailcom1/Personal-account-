@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>واجهة المستخدم</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e7f3f9;
+            text-align: right;
+            direction: rtl;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 400px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            height: 100vh; /* تأخذ الحاوية طول الشاشة بالكامل */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .profile-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 5px solid #ffd700;
+            margin: 0 auto 20px;
+            display: block;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 15px;
+            margin: 15px 0;
+            border: 2px solid #ffd700;
+            border-radius: 25px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .input-field[disabled] {
+            background-color: #e7e7e7;
+        }
+
+        .field-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+            text-align: right;
+        }
+
+        .error-msg, .success-msg {
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        .error-msg {
+            color: red;
+        }
+
+        .success-msg {
+            color: green;
+        }
+
+        .submit-btn {
+            padding: 10px 20px;
+            background-color: #ffd700;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            background-color: #ffc107;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                width: 95%;
+                padding: 15px;
+            }
+
+            .profile-image {
+                width: 100px;
+                height: 100px;
+            }
+        }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBfGV0d4rXbwEUTtk5CRVIWMWTkixwt7_0",
+            authDomain: "this-is-a-referral.firebaseapp.com",
+            projectId: "this-is-a-referral",
+            storageBucket: "this-is-a-referral.appspot.com",
+            messagingSenderId: "755422423785",
+            appId: "1:755422423785:web:d345d2299efab2fe1d9e78",
+            measurementId: "G-DW696JQ8J5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const userId = "user123";
+
+        function generateReferralCode() {
+            let referralCode = '';
+            for (let i = 0; i < 11; i++) {
+                referralCode += Math.floor(Math.random() * 10);
+            }
+            console.log("Generated Referral Code: ", referralCode);
+            return referralCode;
+        }
+
+        async function fetchData() {
+            try {
+                const docRef = doc(db, "users", userId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log("Data found:", data);
+                    document.getElementById('username').value = data.username || '';
+                    document.getElementById('email').value = data.email || '';
+                    document.getElementById('referralCode').value = data.referralCode || 'رمز غير موجود';
+                } else {
+                    console.log("No document found, creating new referral code...");
+                    const newReferralCode = generateReferralCode();
+                    await setDoc(docRef, { referralCode: newReferralCode });
+                    document.getElementById('referralCode').value = newReferralCode;
+                    console.log("New referral code created:", newReferralCode);
+                }
+            } catch (error) {
+                displayError("حدث خطأ أثناء جلب البيانات. الرجاء المحاولة لاحقًا.");
+                console.error("خطأ في جلب البيانات:", error);
+            }
+        }
+
+        function canUpdate(lastUpdated) {
+            if (!lastUpdated) {
+                return true;
+            }
+            const currentDate = new Date();
+            const lastUpdateDate = lastUpdated.toDate();
+            const diffInDays = (currentDate - lastUpdateDate) / (1000 * 3600 * 24);
+
+            return diffInDays >= 30;
+        }
+
+        async function saveUserData() {
+            try {
+                const username = document.getElementById("username").value;
+                const email = document.getElementById("email").value;
+                const docRef = doc(db, "users", userId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+
+                    if (canUpdate(data.lastUpdated)) {
+                        const userData = {
+                            username: username,
+                            email: email,
+                            lastUpdated: Timestamp.now()
+                        };
+
+                        await updateDoc(docRef, userData);
+                        displaySuccess("تم حفظ البيانات بنجاح!");
+                    } else {
+                        displayError("لا يمكنك تعديل البيانات إلا مرة واحدة كل شهر.");
+                    }
+                } else {
+                    displayError("لم يتم العثور على المستخدم.");
+                }
+            } catch (error) {
+                displayError("حدث خطأ أثناء حفظ البيانات. الرجاء المحاولة لاحقًا.");
+                console.error("خطأ في حفظ البيانات:", error);
+            }
+        }
+
+        function displayError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.innerText = message;
+            errorMsg.style.display = 'block';
+            document.getElementById('successMsg').style.display = 'none';
+        }
+
+        function displaySuccess(message) {
+            const successMsg = document.getElementById('successMsg');
+            successMsg.innerText = message;
+            successMsg.style.display = 'block';
+            document.getElementById('errorMsg').style.display = 'none';
+        }
+
+        window.onload = function() {
+            fetchData();
+        };
+
+        window.saveUserData = saveUserData;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <img src="profile-image-placeholder.png" alt="Profile Image" class="profile-image">
+        
+        <label class="field-label">اسم المستخدم:</label>
+        <input type="text" class="input-field" id="username" placeholder="اسم المستخدم">
+
+        <label class="field-label">بريد إلكتروني:</label>
+        <input type="email" class="input-field" id="email" placeholder="example@example.com">
+
+        <label class="field-label">رمز الإحالة:</label>
+        <input type="text" class="input-field" id="referralCode" placeholder="رمز الإحالة" disabled>
+
+        <div id="errorMsg" class="error-msg" style="display: none;"></div>
+        <div id="successMsg" class="success-msg" style="display: none;"></div>
+
+        <button class="submit-btn" onclick="saveUserData()">تغير معلومات</button>
+    </div>
+</body>
+</html>
